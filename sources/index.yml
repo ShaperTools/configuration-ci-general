@@ -9,7 +9,7 @@ orbs:
 executors:
   node:
     docker:
-      - image: circleci/node:10.22-buster
+      - image: cimg/node:14.17.6
         user: circleci
   buildpack-deps:
     docker:
