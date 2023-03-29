@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.4.2"></a>
+## [0.4.2](https://github.com/shapertools/configuration-ci-general/compare/v0.4.1...v0.4.2) (2023-03-29)
+
+
+### Bug Fixes
+
+* Updating github RSA public key ([1c47ed2](https://github.com/shapertools/configuration-ci-general/commit/1c47ed2))
+* Update to exact match pr name on cleanup ([7c53c30](https://github.com/shapertools/configuration-ci-general/commit/7c53c30))
+
+
+
 <a name="0.4.1"></a>
 ## [0.4.1](https://github.com/shapertools/configuration-ci-general/compare/v0.4.0...v0.4.1) (2022-04-22)
 
