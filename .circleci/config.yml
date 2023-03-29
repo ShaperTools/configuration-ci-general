@@ -35,7 +35,7 @@ workflows:
               ignore: master
       - general/create-release-pr:
           context: Release Bot
-          git-ssh-fingerprint: 5c:6b:55:e8:b5:43:d5:0c:79:09:7a:a6:29:6b:39:84
+          git-ssh-fingerprint: f9:94:4f:da:95:8d:db:9f:04:7b:cf:a1:98:b8:d6:03
           git-user-email: jenkins-deploy@users.noreply.github.com
           git-user-name: "Release Bot"
           github-access-token: $RELEASE_BOT_GITHUB_TOKEN
@@ -49,7 +49,7 @@ workflows:
               only: master
       - general/tag-and-publish-circleci:
           context: Orb Publishing
-          git-ssh-fingerprint: 5c:6b:55:e8:b5:43:d5:0c:79:09:7a:a6:29:6b:39:84
+          git-ssh-fingerprint: f9:94:4f:da:95:8d:db:9f:04:7b:cf:a1:98:b8:d6:03
           git-user-email: jenkins-deploy@users.noreply.github.com
           git-user-name: "Release Bot"
           orb-ref: shapertools/general
