@@ -1104,6 +1104,10 @@ jobs:
       lock-timeout:
         type: string
         default: "0s"
+      backend-config:
+        type: string
+        description: "passed to terraform plan -backend-config option"
+        default: ""
     executor:
       name: tfenv
     steps:
@@ -1113,7 +1117,15 @@ jobs:
       - steps: << parameters.setup-steps >>
       - run:
           name: Initializing Terraform
-          command: cd << parameters.directory >> && terraform init -input=false
+          command: |
+            cd << parameters.directory >>
+
+            backend_config=""
+            if [ "<< parameters.backend-config >>" ]; then
+              backend_config=" -backend-config=<< parameters.backend-config >>"
+            fi
+
+            terraform init -input=false $backend_config
       - select-or-create-workspace:
           directory: << parameters.directory >>
           workspace-name: << parameters.workspace >>
@@ -1187,6 +1199,10 @@ jobs:
       lock-timeout:
         type: string
         default: "0s"
+      backend-config:
+        type: string
+        description: "passed to terraform plan -backend-config option"
+        default: ""
     executor:
       name: tfenv
     steps:
@@ -1196,7 +1212,15 @@ jobs:
       - steps: << parameters.setup-steps >>
       - run:
           name: Initializing Terraform
-          command: cd << parameters.directory >> && terraform init -input=false
+          command: |
+            cd << parameters.directory >>
+
+            backend_config=""
+            if [ "<< parameters.backend-config >>" ]; then
+              backend_config=" -backend-config=<< parameters.backend-config >>"
+            fi
+
+            terraform init -input=false $backend_config
       - select-or-create-workspace:
           directory: << parameters.directory >>
           workspace-name: << parameters.workspace >>
