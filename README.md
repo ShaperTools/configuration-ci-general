@@ -57,3 +57,4 @@ The best release process is one that is automated, removing the barrier to relea
 ### Miscellaneous Configuration
 
 Many projects share similar workflows related to linting, building, running tests, etc. The rest of this orb contains configuration aimed at reducing the boilerplate needed when running these common steps across different projects. Note that this configuration is very opinionated, reflecting the way that my other projects are set up. See the [full documentation for this orb](https://circleci.com/orbs/registry/orb/shapertools/general) for more information on this miscellaneous configuration.
+
