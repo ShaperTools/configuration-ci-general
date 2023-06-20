@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.0"></a>
+# [0.5.0](https://github.com/shapertools/configuration-ci-general/compare/v0.4.3...v0.5.0) (2023-06-16)
+
+
+### Features
+
+* Allow passing a backend-config file to terraform plan/apply ([a33c009](https://github.com/shapertools/configuration-ci-general/commit/a33c009))
+
+
+
 <a name="0.4.3"></a>
 ## [0.4.3](https://github.com/shapertools/configuration-ci-general/compare/v0.4.1...v0.4.3) (2023-03-29)
 
