@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.1"></a>
+## [0.5.1](https://github.com/shapertools/configuration-ci-general/compare/v0.5.0...v0.5.1) (2023-06-26)
+
+
+### Bug Fixes
+
+* Add terraform-plan-comment command ([0ee3bec](https://github.com/shapertools/configuration-ci-general/commit/0ee3bec))
+
+
+
 <a name="0.5.0"></a>
 # [0.5.0](https://github.com/shapertools/configuration-ci-general/compare/v0.4.3...v0.5.0) (2023-06-16)
 
