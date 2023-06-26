@@ -30,6 +30,37 @@ executors:
         user: circleci
 
 commands:
+  terraform-plan-comment:
+    parameters:
+      directory:
+        type: string
+      tf-plan:
+        type: string
+        description: Path to an existing terraform.plan file
+    steps:
+      - run:
+          name: Attach Terraform Plan to Pull Request
+          command: |
+            PR_NUMBER=$(echo $CIRCLE_PULL_REQUEST | awk -F '/' '{print $NF}')
+            if [ -n "$PR_NUMBER" ]; then
+              sudo apt-get update && sudo apt-get install jq
+              cd << parameters.directory >>
+              TFPLAN_OUTPUT=$(terraform show -no-color << parameters.tf-plan >>)
+              ESCAPED_OUTPUT=$(echo "$TFPLAN_OUTPUT" | jq -Rrs '@json' | sed 's/^"//' | sed 's/"$//')
+              COMMENT_PAYLOAD="{\"body\":\"**Terraform Plan Output**\n\`\`\`"$ESCAPED_OUTPUT"\`\`\`\"}"
+
+              # Check if there is an existing comment from the bot
+              EXISTING_COMMENT_URL=$(curl -sSL -H "Authorization: token $RELEASE_BOT_GITHUB_TOKEN" -H "Content-Type: application/json" "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/issues/$PR_NUMBER/comments" | jq -r '.[] | select(.user.login == "web-github-ci") | .url')
+              if [ -n "$EXISTING_COMMENT_URL" ]; then
+                # Delete the existing comment
+                curl -sSL -H "Authorization: token $RELEASE_BOT_GITHUB_TOKEN" -H "Content-Type: application/json" -X DELETE "$EXISTING_COMMENT_URL"
+              fi
+
+              # Create new comment
+              curl -sSL -H "Authorization: token $RELEASE_BOT_GITHUB_TOKEN" -H "Content-Type: application/json" -X POST --data "$COMMENT_PAYLOAD" "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/issues/$PR_NUMBER/comments"
+            else
+              echo "Not a pull request build. Skipping comment."
+            fi
   put-all:
     description: Save all files to the workspace
     steps:
@@ -1134,6 +1165,7 @@ jobs:
           lock-timeout: << parameters.lock-timeout >>
       - put-path:
           path: << parameters.directory >>/terraform.plan
+
   terraform-run:
     parameters:
       lock-timeout:
