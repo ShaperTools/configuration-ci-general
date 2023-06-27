@@ -205,8 +205,6 @@ commands:
 
             EOF
 
-            echo 'unset << parameters.aws-access-key-id-variable-name >>' >> ${BASH_ENV}
-            echo 'unset << parameters.aws-secret-access-key-variable-name >>' >> ${BASH_ENV}
             echo 'export AWS_PROFILE="<< parameters.profile-name >>"' >> ${BASH_ENV}
             echo 'export AWS_SDK_LOAD_CONFIG=1' >> ${BASH_ENV}
   login-ecr:
