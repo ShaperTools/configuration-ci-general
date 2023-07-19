@@ -1362,6 +1362,10 @@ jobs:
       lock-timeout:
         type: string
         default: "0s"
+      backend-config:
+        type: string
+        description: "passed to terraform plan -backend-config option"
+        default: ""
     executor:
       name: tfenv
     steps:
@@ -1396,7 +1400,13 @@ jobs:
             }
 
             cd << parameters.directory >>
-            terraform init -input=false
+
+            backend_config=""
+            if [ "<< parameters.backend-config >>" ]; then
+              backend_config=" -backend-config=<< parameters.backend-config >>"
+            fi
+
+            terraform init -input=false $backend_config
 
             allWorkspaces="$(terraform workspace list)"
             echo "The following Terraform workspaces exist:"
@@ -1432,6 +1442,10 @@ jobs:
       lock-timeout:
         type: string
         default: "0s"
+      backend-config:
+        type: string
+        description: "passed to terraform plan -backend-config option"
+        default: ""
     executor:
       name: tfenv
     steps:
@@ -1471,7 +1485,13 @@ jobs:
             }
 
             cd << parameters.directory >>
-            terraform init -input=false
+
+            backend_config=""
+            if [ "<< parameters.backend-config >>" ]; then
+              backend_config=" -backend-config=<< parameters.backend-config >>"
+            fi
+
+            terraform init -input=false $backend_config
             for workspace in $(prWorkspaces | withoutOpenPrs); do
               terraform workspace select "${workspace}"
               terraform destroy -lock-timeout=<< parameters.lock-timeout >> -auto-approve
