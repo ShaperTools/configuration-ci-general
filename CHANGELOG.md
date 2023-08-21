@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.3"></a>
+## [0.5.3](https://github.com/shapertools/configuration-ci-general/compare/v0.5.2...v0.5.3) (2023-08-21)
+
+
+### Bug Fixes
+
+* Allow specifying directory when installing yarn dependencies ([1eaae55](https://github.com/shapertools/configuration-ci-general/commit/1eaae55))
+
+
+
 <a name="0.5.2"></a>
 ## [0.5.2](https://github.com/shapertools/configuration-ci-general/compare/v0.5.1...v0.5.2) (2023-07-20)
 
