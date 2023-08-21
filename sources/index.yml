@@ -354,14 +354,17 @@ commands:
       install-yarn:
         type: boolean
         default: true
+      directory:
+        type: string
     steps:
       - node/install:
           install-yarn: << parameters.install-yarn >>
       - restore_cache:
-          key: node_modules-{{ arch }}-{{ checksum "yarn.lock" }}
+          key: node_modules-{{ arch }}-{{ checksum "<< parameters.directory >>/yarn.lock" }}
       - run:
           name: Installing Yarn dependencies
           command: |
+            cd << parameters.directory >>
             if [[ -e "yarn.lock" ]]; then
               if [[ -d "node_modules" ]]; then
                 echo "Cached node_modules found. Skipping install step."
@@ -378,9 +381,9 @@ commands:
               yarn install
             fi
       - save_cache:
-          key: node_modules-{{ arch }}-{{ checksum "yarn.lock" }}
+          key: node_modules-{{ arch }}-{{ checksum "<< parameters.directory >>/yarn.lock" }}
           paths:
-            - node_modules
+            - << parameters.directory >>/node_modules
   install-dependencies-npm:
     steps:
       - node/install
@@ -697,6 +700,9 @@ jobs:
       setup-steps:
         type: steps
         default: []
+      directory:
+        type: string
+        default: "."
       executor:
         type: executor
         default: node
@@ -706,6 +712,7 @@ jobs:
       - steps: << parameters.setup-steps >>
       - install-dependencies-yarn:
           install-yarn: << parameters.install-yarn >>
+          directory: << parameters.directory >>
       - put-all
   lint:
     parameters:
