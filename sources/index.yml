@@ -1365,6 +1365,13 @@ jobs:
       - install-required-terraform-version:
           directory: << parameters.directory >>
       - run:
+          name: Installing AWS CLI
+          command: |
+            if ! which aws > /dev/null; then
+              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
+              sudo pip3 install awscli
+            fi
+      - run:
           name: Finding and destroying outdated PR deployments
           command: |
             function cleanedUpWorkspaces() {
@@ -1444,6 +1451,13 @@ jobs:
       - steps: << parameters.setup-steps >>
       - install-required-terraform-version:
           directory: << parameters.directory >>
+      - run:
+          name: Installing AWS CLI
+          command: |
+            if ! which aws > /dev/null; then
+              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
+              sudo pip3 install awscli
+            fi
       - run:
           name: Finding and destroying outdated PR deployments
           command: |
