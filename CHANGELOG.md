@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.5"></a>
+## [0.5.5](https://github.com/shapertools/configuration-ci-general/compare/v0.5.4...v0.5.5) (2023-08-23)
+
+
+### Bug Fixes
+
+* Install aws-cli in cleanup jobs ([0b7ee42](https://github.com/shapertools/configuration-ci-general/commit/0b7ee42))
+
+
+
 <a name="0.5.4"></a>
 # [0.5.4](https://github.com/shapertools/configuration-ci-general/compare/v0.5.3...v0.5.4) (2023-08-23)
 
