@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.4"></a>
+# [0.5.4](https://github.com/shapertools/configuration-ci-general/compare/v0.5.3...v0.5.4) (2023-08-23)
+
+
+### Bug Fixes
+
+* Remove get-eks-token command ([b75c7eb](https://github.com/shapertools/configuration-ci-general/commit/b75c7eb))
+
+
+
 <a name="0.5.3"></a>
 ## [0.5.3](https://github.com/shapertools/configuration-ci-general/compare/v0.5.2...v0.5.3) (2023-08-21)
 
