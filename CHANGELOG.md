@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.5.6"></a>
+## [0.5.6](https://github.com/shapertools/configuration-ci-general/compare/v0.5.5...v0.5.6) (2023-09-01)
+
+
+### Bug Fixes
+
+* Install AWS CLI in terraform apply job ([1a2177e](https://github.com/shapertools/configuration-ci-general/commit/1a2177e))
+
+
+
 <a name="0.5.5"></a>
 ## [0.5.5](https://github.com/shapertools/configuration-ci-general/compare/v0.5.4...v0.5.5) (2023-08-23)
 
