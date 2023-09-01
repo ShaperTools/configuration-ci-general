@@ -1234,6 +1234,13 @@ jobs:
           directory: << parameters.directory >>
       - steps: << parameters.setup-steps >>
       - run:
+          name: Installing AWS CLI
+          command: |
+            if ! which aws > /dev/null; then
+              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
+              sudo pip3 install awscli
+            fi
+      - run:
           name: Initializing Terraform
           command: |
             cd << parameters.directory >>
