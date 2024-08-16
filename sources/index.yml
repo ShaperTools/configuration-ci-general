@@ -30,6 +30,28 @@ executors:
         user: circleci
 
 commands:
+  check-isolated-deployment-label:
+    steps:
+      - run:
+          name: Checking for isolated-deployment label
+          command: |
+            if [[ -z "${CIRCLE_PULL_REQUEST##*/}" ]]; then
+              echo "Job is not running for a pull request. Halting the job."
+              circleci-agent step halt
+            fi
+
+            PR_NUMBER=$(echo $CIRCLE_PULL_REQUEST | sed 's/.*\/pull\/\([0-9]*\)/\1/')
+            LABELS=$(curl -s -H "Authorization: token $RELEASE_BOT_GITHUB_TOKEN" \
+                          -H "Accept: application/vnd.github.v3+json" \
+                          https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/pulls/$PR_NUMBER \
+                          | jq -r '.labels | .[].name')
+            echo "Labels found: $LABELS"
+            if ! echo "$LABELS" | grep -q "isolated-deployment"; then
+              echo "Label 'isolated-deployment' not found. Halting the job."
+              circleci-agent step halt
+            else
+              echo "Label 'isolated-deployment' found. Continuing the job."
+            fi
   terraform-plan-comment:
     parameters:
       directory:
