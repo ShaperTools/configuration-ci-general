@@ -1426,6 +1426,17 @@ jobs:
               done
             }
 
+            function filterOutdatedWorkspacesByAge() {
+              read -d '' -ra workspaces
+              for workspace in "${workspaces[@]}"; do
+                commit=$(echo "${workspace}" | sed -E 's/^git-(.+)$/\1/')
+                # Check if the commit is older than 14 days
+                if ! git log --since='14 days ago' --pretty=format:"%H" | grep -q "${commit}"; then
+                  echo "${workspace}"
+                fi
+              done
+            }
+
             cd << parameters.directory >>
 
             backend_config=""
@@ -1440,7 +1451,9 @@ jobs:
             echo "${allWorkspaces[@]}"
             echo ""
 
-            workspacesToDestroy="$(echo "${allWorkspaces[@]}" | commitWorkspaces | withoutOutdatedCommits)"
+            outdatedWorkspaces="$(echo "${allWorkspaces[@]}" | commitWorkspaces | withoutOutdatedCommits)"
+            oldWorkspaces="$(echo "${allWorkspaces[@]}" | commitWorkspaces | filterOutdatedWorkspacesByAge)"
+            workspacesToDestroy=$(printf "%s\n%s" "$outdatedWorkspaces" "$oldWorkspaces" | tr ' ' '\n' | sort -u)
             echo "The following workspaces are eligible for destruction:"
             echo "${workspacesToDestroy[@]}"
             echo ""
@@ -1518,6 +1531,17 @@ jobs:
               echo "${workspaces[@]}"
             }
 
+            function filterOutdatedWorkspacesByAge() {
+              read -d '' -ra workspaces
+              for workspace in "${workspaces[@]}"; do
+                commit=$(echo "${workspace}" | sed -E 's/^pr-(.+)$/\1/')
+                # Check if the commit is older than 14 days
+                if ! git log --since='14 days ago' --pretty=format:"%H" | grep -q "${commit}"; then
+                  echo "${workspace}"
+                fi
+              done
+            }
+
             cd << parameters.directory >>
 
             backend_config=""
@@ -1527,6 +1551,13 @@ jobs:
 
             terraform init -input=false $backend_config
             for workspace in $(prWorkspaces | withoutOpenPrs); do
+              terraform workspace select "${workspace}"
+              terraform destroy -lock-timeout=<< parameters.lock-timeout >> -auto-approve
+              terraform workspace select default
+              terraform workspace delete "${workspace}"
+            done
+
+            for workspace in $(prWorkspaces | filterOutdatedWorkspacesByAge); do
               terraform workspace select "${workspace}"
               terraform destroy -lock-timeout=<< parameters.lock-timeout >> -auto-approve
               terraform workspace select default
