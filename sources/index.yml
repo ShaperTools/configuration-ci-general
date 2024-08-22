@@ -1426,17 +1426,6 @@ jobs:
               done
             }
 
-            function filterOutdatedWorkspacesByAge() {
-              read -d '' -ra workspaces
-              for workspace in "${workspaces[@]}"; do
-                commit=$(echo "${workspace}" | sed -E 's/^git-(.+)$/\1/')
-                # Check if the commit is older than 14 days
-                if ! git log --since='14 days ago' --pretty=format:"%H" | grep -q "${commit}"; then
-                  echo "${workspace}"
-                fi
-              done
-            }
-
             cd << parameters.directory >>
 
             backend_config=""
@@ -1451,9 +1440,7 @@ jobs:
             echo "${allWorkspaces[@]}"
             echo ""
 
-            outdatedWorkspaces="$(echo "${allWorkspaces[@]}" | commitWorkspaces | withoutOutdatedCommits)"
-            oldWorkspaces="$(echo "${allWorkspaces[@]}" | commitWorkspaces | filterOutdatedWorkspacesByAge)"
-            workspacesToDestroy=$(printf "%s\n%s" "$outdatedWorkspaces" "$oldWorkspaces" | tr ' ' '\n' | sort -u)
+            workspacesToDestroy="$(echo "${allWorkspaces[@]}" | commitWorkspaces | withoutOutdatedCommits)"
             echo "The following workspaces are eligible for destruction:"
             echo "${workspacesToDestroy[@]}"
             echo ""
@@ -1503,13 +1490,6 @@ jobs:
       - run:
           name: Finding and destroying outdated PR deployments
           command: |
-            function openPrWorkspaces() {
-              curl -X GET \
-                -H 'Accept: application/vnd.github.v3+json' \
-                -H "Authorization: token << parameters.github-access-token >>" \
-                "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pulls" | jq -r '.[] | "pr-\(.number)"'
-            }
-
             function cleanedUpWorkspaces() {
               sed -E 's/^\*? *([^ ]+) *$/\1/'
             }
@@ -1531,17 +1511,6 @@ jobs:
               echo "${workspaces[@]}"
             }
 
-            function filterOutdatedWorkspacesByAge() {
-              read -d '' -ra workspaces
-              for workspace in "${workspaces[@]}"; do
-                commit=$(echo "${workspace}" | sed -E 's/^pr-(.+)$/\1/')
-                # Check if the commit is older than 14 days
-                if ! git log --since='14 days ago' --pretty=format:"%H" | grep -q "${commit}"; then
-                  echo "${workspace}"
-                fi
-              done
-            }
-
             cd << parameters.directory >>
 
             backend_config=""
@@ -1551,13 +1520,6 @@ jobs:
 
             terraform init -input=false $backend_config
             for workspace in $(prWorkspaces | withoutOpenPrs); do
-              terraform workspace select "${workspace}"
-              terraform destroy -lock-timeout=<< parameters.lock-timeout >> -auto-approve
-              terraform workspace select default
-              terraform workspace delete "${workspace}"
-            done
-
-            for workspace in $(prWorkspaces | filterOutdatedWorkspacesByAge); do
               terraform workspace select "${workspace}"
               terraform destroy -lock-timeout=<< parameters.lock-timeout >> -auto-approve
               terraform workspace select default
