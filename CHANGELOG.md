@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.7.3"></a>
+## [0.7.3](https://github.com/shapertools/configuration-ci-general/compare/v0.7.2...v0.7.3) (2024-08-23)
+
+
+### Bug Fixes
+
+* Cleanup PR Deployments Job ([149891a](https://github.com/shapertools/configuration-ci-general/commit/149891a))
+
+
+
 <a name="0.7.2"></a>
 ## [0.7.2](https://github.com/shapertools/configuration-ci-general/compare/v0.7.1...v0.7.2) (2024-08-22)
 
