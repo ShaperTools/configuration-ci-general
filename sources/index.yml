@@ -1490,6 +1490,13 @@ jobs:
       - run:
           name: Finding and destroying outdated PR deployments
           command: |
+            function openPrWorkspaces() {
+              curl -X GET \
+                -H 'Accept: application/vnd.github.v3+json' \
+                -H "Authorization: token << parameters.github-access-token >>" \
+                "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pulls" | jq -r '.[] | "pr-\(.number)"'
+            }
+
             function cleanedUpWorkspaces() {
               sed -E 's/^\*? *([^ ]+) *$/\1/'
             }
