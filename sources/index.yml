@@ -5,12 +5,12 @@ description: General purpose continuous integration configuration
 orbs:
   circleci-cli: circleci/circleci-cli@0.1.8
   orbs: circleci/orb-tools@10.0.0
-  node: circleci/node@5.0.0
+  node: circleci/node@6.1.0
 
 executors:
   node:
     docker:
-      - image: circleci/node:12.22-buster
+      - image: cimg/node:22.8.0
         user: circleci
     resource_class: medium+
   buildpack-deps:
