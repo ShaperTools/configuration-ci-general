@@ -38,6 +38,7 @@ commands:
             if [[ -z "${CIRCLE_PULL_REQUEST##*/}" ]]; then
               echo "Job is not running for a pull request. Halting the job."
               circleci-agent step halt
+              exit 0;
             fi
 
             PR_NUMBER=$(echo $CIRCLE_PULL_REQUEST | sed 's/.*\/pull\/\([0-9]*\)/\1/')
