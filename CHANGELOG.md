@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.7.5"></a>
+## [0.7.5](https://github.com/shapertools/configuration-ci-general/compare/v0.7.4...v0.7.5) (2024-09-17)
+
+
+### Bug Fixes
+
+* Just use LTS rather than a random archaic node version ([35e1e1f](https://github.com/shapertools/configuration-ci-general/commit/35e1e1f))
+* Switch away from deprecated images ([2f714f8](https://github.com/shapertools/configuration-ci-general/commit/2f714f8))
+
+
+
 <a name="0.7.4"></a>
 ## [0.7.4](https://github.com/shapertools/configuration-ci-general/compare/v0.7.3...v0.7.4) (2024-09-17)
 
