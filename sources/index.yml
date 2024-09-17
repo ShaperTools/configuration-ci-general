@@ -10,12 +10,12 @@ orbs:
 executors:
   node:
     docker:
-      - image: circleci/node:12.22-buster
+      - image: cimg/node:lts
         user: circleci
     resource_class: medium+
   buildpack-deps:
     docker:
-      - image: circleci/buildpack-deps:buster
+      - image: cimg/base:current-22.04
         user: circleci
   terraform:
     parameters:
