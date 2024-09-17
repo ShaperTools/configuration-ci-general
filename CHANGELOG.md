@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.7.4"></a>
+## [0.7.4](https://github.com/shapertools/configuration-ci-general/compare/v0.7.3...v0.7.4) (2024-09-17)
+
+
+### Bug Fixes
+
+* Stop execution after halting during check-isolated-deployment-label ([4817247](https://github.com/shapertools/configuration-ci-general/commit/4817247))
+
+
+
 <a name="0.7.3"></a>
 ## [0.7.3](https://github.com/shapertools/configuration-ci-general/compare/v0.7.2...v0.7.3) (2024-08-23)
 
