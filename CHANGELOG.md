@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.7.6"></a>
+## [0.7.6](https://github.com/shapertools/configuration-ci-general/compare/v0.7.5...v0.7.6) (2025-06-25)
+
+
+### Bug Fixes
+
+* Add condition to configure profile ([e5d574a](https://github.com/shapertools/configuration-ci-general/commit/e5d574a))
+* Reuse credentials variables in configure aws profile ([5ad2b3f](https://github.com/shapertools/configuration-ci-general/commit/5ad2b3f))
+
+
+
 <a name="0.7.5"></a>
 ## [0.7.5](https://github.com/shapertools/configuration-ci-general/compare/v0.7.4...v0.7.5) (2024-09-17)
 
