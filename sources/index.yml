@@ -228,6 +228,12 @@ commands:
 
             EOF
 
+            if [ "<< parameters.aws-access-key-id-variable-name >>" = "AWS_ACCESS_KEY_ID" ] && \
+               [ "<< parameters.aws-secret-access-key-variable-name >>" = "AWS_SECRET_ACCESS_KEY" ]; then
+              # Avoid using default credentials from environment in favor of configured profiles. 
+              echo 'unset AWS_ACCESS_KEY_ID' >> ${BASH_ENV}
+              echo 'unset AWS_SECRET_ACCESS_KEY' >> ${BASH_ENV}
+            fi
             echo 'export AWS_PROFILE="<< parameters.profile-name >>"' >> ${BASH_ENV}
             echo 'export AWS_SDK_LOAD_CONFIG=1' >> ${BASH_ENV}
   login-ecr:
