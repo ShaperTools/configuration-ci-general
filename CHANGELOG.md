@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.8.0"></a>
+# [0.8.0](https://github.com/shapertools/configuration-ci-general/compare/v0.7.6...v0.8.0) (2025-07-14)
+
+
+### Bug Fixes
+
+* Refactor terraform commands ([98365fe](https://github.com/shapertools/configuration-ci-general/commit/98365fe))
+* Update package json ([6829017](https://github.com/shapertools/configuration-ci-general/commit/6829017))
+
+
+### Features
+
+* **terraform:** Fix failing pipelines due to outdated images ([c7936a8](https://github.com/shapertools/configuration-ci-general/commit/c7936a8))
+
+
+
 <a name="0.7.6"></a>
 ## [0.7.6](https://github.com/shapertools/configuration-ci-general/compare/v0.7.5...v0.7.6) (2025-06-25)
 
