@@ -17,17 +17,13 @@ executors:
     docker:
       - image: cimg/base:current-22.04
         user: circleci
-  terraform-version:
+  terraform:
     parameters:
       tag:
         type: string
+        default: "latest"
     docker:
       - image: hashicorp/terraform:<< parameters.tag >>
-        user: circleci
-  terraform:
-    docker:
-      - image: hashicorp/terraform:latest
-        user: circleci
 
 commands:
   check-isolated-deployment-label:
@@ -497,7 +493,7 @@ commands:
           name: Installing required Terraform version
           command: |
             cd << parameters.directory >>
-            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | bash
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
             [[ -f versions.tf ]] && filename="versions.tf" || filename="main.tf"
             desiredTerraformVersion=$(cat ${filename} | grep --extended-regexp '^\s*required_version\s*=\s*"\s*(=|>=)?\s*[0-9]+\.[0-9]+\.[0-9]+\s*"\s*$' | head | sed -E 's/^.*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
             tfswitch "${desiredTerraformVersion}"
@@ -509,7 +505,7 @@ commands:
       - run:
           name: Installing Terraform Version << parameters.version >>
           command: |
-            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | bash
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
             tfswitch << parameters.version >>
   create-terraform-plan:
     parameters:
@@ -805,8 +801,6 @@ jobs:
       recursive:
         type: boolean
         default: true
-      terraform-image-tag:
-        type: string
     executor: terraform
     steps:
       - get-workspace
@@ -1148,7 +1142,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1202,7 +1196,7 @@ jobs:
         type: string
         default: default
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1251,7 +1245,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1308,14 +1302,14 @@ jobs:
         type: boolean
         default: true
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
       - run:
           name: Validiting Terraform configuration
           command: |
-            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | bash
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
             directories=(<< parameters.directories >>)
 
             for directory in "${directories[@]}"; do
@@ -1390,7 +1384,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
@@ -1474,7 +1468,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: terraform
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
