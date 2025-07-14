@@ -21,13 +21,9 @@ executors:
     parameters:
       tag:
         type: string
+        default: "latest"
     docker:
-      - image: edahlseng/circleci-terraform:<< parameters.tag >>-stretch
-        user: circleci
-  tfenv:
-    docker:
-      - image: edahlseng/circleci-tfenv:buster
-        user: circleci
+      - image: hashicorp/terraform:<< parameters.tag >>
 
 commands:
   check-isolated-deployment-label:
@@ -497,10 +493,10 @@ commands:
           name: Installing required Terraform version
           command: |
             cd << parameters.directory >>
-
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
             [[ -f versions.tf ]] && filename="versions.tf" || filename="main.tf"
             desiredTerraformVersion=$(cat ${filename} | grep --extended-regexp '^\s*required_version\s*=\s*"\s*(=|>=)?\s*[0-9]+\.[0-9]+\.[0-9]+\s*"\s*$' | head | sed -E 's/^.*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
-            tfenv install "${desiredTerraformVersion}" && tfenv use "${desiredTerraformVersion}"
+            tfswitch "${desiredTerraformVersion}"
   install-terraform-version:
     parameters:
       version:
@@ -508,7 +504,9 @@ commands:
     steps:
       - run:
           name: Installing Terraform Version << parameters.version >>
-          command: tfenv install << parameters.version >>
+          command: |
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
+            tfswitch << parameters.version >>
   create-terraform-plan:
     parameters:
       directory:
@@ -803,9 +801,7 @@ jobs:
       recursive:
         type: boolean
         default: true
-      terraform-image-tag:
-        type: string
-    executor: tfenv
+    executor: terraform
     steps:
       - get-workspace
       - run:
@@ -817,8 +813,6 @@ jobs:
             if << parameters.recursive >>; then
                recursive_arg="-recursive"
             fi
-
-            tfenv install << parameters.terraform-image-tag >>
             terraform fmt -check=true $recursive_arg
   lint-yaml: # Deprecated (use lint, instead)
     executor: node
@@ -1134,9 +1128,6 @@ jobs:
     parameters:
       directory:
         type: string
-      terraform-image-tag: # Unused and deprecated, but included to provide backwards compatibility
-        type: string
-        default: ""
       setup-steps:
         type: steps
         default: []
@@ -1151,7 +1142,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1205,7 +1196,7 @@ jobs:
         type: string
         default: default
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1254,7 +1245,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - install-required-terraform-version:
@@ -1311,13 +1302,14 @@ jobs:
         type: boolean
         default: true
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
       - run:
           name: Validiting Terraform configuration
           command: |
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
             directories=(<< parameters.directories >>)
 
             for directory in "${directories[@]}"; do
@@ -1325,7 +1317,7 @@ jobs:
 
               [[ -f versions.tf ]] && filename="versions.tf" || filename="main.tf"
               desiredTerraformVersion=$(cat ${filename} | grep --extended-regexp '^\s*required_version\s*=\s*"\s*(=|>=)?\s*[0-9]+\.[0-9]+\.[0-9]+\s*"\s*$' | head | sed -E 's/^.*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
-              tfenv install "${desiredTerraformVersion}" && tfenv use "${desiredTerraformVersion}"
+              tfswitch "${desiredTerraformVersion}"
 
               terraform init -input=false
               <<# parameters.run-validate-after-init >>
@@ -1392,7 +1384,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
@@ -1463,9 +1455,6 @@ jobs:
     parameters:
       directory:
         type: string
-      terraform-image-tag: # Unused and deprecated, but included to provide backwards compatibility
-        type: string
-        default: ""
       github-access-token:
         type: string
       setup-steps:
@@ -1479,7 +1468,7 @@ jobs:
         description: "passed to terraform plan -backend-config option"
         default: ""
     executor:
-      name: tfenv
+      name: buildpack-deps
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
