@@ -1336,6 +1336,10 @@ jobs:
         type: string
       tag:
         type: string
+      additional-tags:
+        type: string
+        default: ""
+        description: A space-separated list of additional tags to apply to the image
       build-options:
         type: string
         default: ""
@@ -1360,8 +1364,18 @@ jobs:
           command: docker build --file << parameters.dockerfile-path >> --tag << parameters.tag >> << parameters.build-options >> << parameters.path >>
           no_output_timeout: 20m
       - run:
+          name: Tagging Docker image with additional tags
+          command: |
+            for t in << parameters.additional-tags >>; do
+              docker tag << parameters.tag >> "$t"
+            done
+      - run:
           name: Pushing Docker image
-          command: docker push << parameters.tag >>
+          command: |
+            docker push << parameters.tag >>
+            for t in << parameters.additional-tags >>; do
+              docker push "$t"
+            done
   cleanup-isolated-commit-deployments:
     parameters:
       directory:
