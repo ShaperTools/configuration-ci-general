@@ -616,6 +616,161 @@ commands:
           name: Pushing tag to Git remote
           command: git push --tags
 
+  calculate-semantic-version:
+    description: Calculate next semantic version based on conventional commits since last semver tag
+    parameters:
+      version-env-var:
+        description: Environment variable to store the calculated version
+        type: string
+        default: SEMANTIC_VERSION
+      tag-prefix:
+        description: Prefix for semver git tags (e.g., 'v' for v1.2.3)
+        type: string
+        default: "v"
+      default-version:
+        description: Default version if no semver tags exist
+        type: string
+        default: "1.0.0"
+      fallback-to-patch:
+        description: If true, bump patch version for non-conventional commits
+        type: boolean
+        default: true
+    steps:
+      - run:
+          name: Calculating semantic version from conventional commits
+          command: |
+            set -e
+
+            TAG_PREFIX="<< parameters.tag-prefix >>"
+            DEFAULT_VERSION="<< parameters.default-version >>"
+            FALLBACK_TO_PATCH="<< parameters.fallback-to-patch >>"
+
+            # Find the latest semver tag
+            LATEST_TAG=$(git tag --list "${TAG_PREFIX}[0-9]*.[0-9]*.[0-9]*" --sort=-version:refname 2>/dev/null | head -n 1 || true)
+
+            if [[ -z "$LATEST_TAG" ]]; then
+              echo "No existing semver tags found. Using default version: ${DEFAULT_VERSION}"
+              echo "export << parameters.version-env-var >>='${DEFAULT_VERSION}'" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            echo "Latest tag: $LATEST_TAG"
+
+            # Extract version from tag
+            CURRENT_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
+            MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+            MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+            PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+
+            echo "Current version: $MAJOR.$MINOR.$PATCH"
+
+            # Get commits since last tag
+            COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || true)
+
+            if [[ -z "$COMMITS" ]]; then
+              echo "No new commits since last tag. No version bump needed."
+              echo "export << parameters.version-env-var >>=''" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            echo "Analyzing commits since $LATEST_TAG..."
+            echo "$COMMITS"
+            echo ""
+
+            # Determine bump type from conventional commits
+            # Priority: major > minor > patch
+            BUMP_TYPE=""
+
+            # Check for breaking changes (major bump)
+            # Matches: type!: or type(scope)!: or BREAKING CHANGE: in body
+            if echo "$COMMITS" | grep -qE "^[a-z]+(\([^)]+\))?!:|BREAKING CHANGE"; then
+              BUMP_TYPE="major"
+              echo "Found breaking change commit(s) -> major bump"
+            # Check for features (minor bump)
+            elif echo "$COMMITS" | grep -qE "^feat(\([^)]+\))?:"; then
+              BUMP_TYPE="minor"
+              echo "Found feature commit(s) -> minor bump"
+            # Check for fixes (patch bump)
+            elif echo "$COMMITS" | grep -qE "^fix(\([^)]+\))?:"; then
+              BUMP_TYPE="patch"
+              echo "Found fix commit(s) -> patch bump"
+            # Check for perf (patch bump)
+            elif echo "$COMMITS" | grep -qE "^perf(\([^)]+\))?:"; then
+              BUMP_TYPE="patch"
+              echo "Found perf commit(s) -> patch bump"
+            # Fallback for non-conventional commits
+            elif [[ "$FALLBACK_TO_PATCH" == "true" ]]; then
+              BUMP_TYPE="patch"
+              echo "No conventional commit types found, fallback to patch bump"
+            fi
+
+            if [[ -z "$BUMP_TYPE" ]]; then
+              echo "No releasable commits found. Skipping version bump."
+              echo "export << parameters.version-env-var >>=''" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            # Calculate new version
+            case $BUMP_TYPE in
+              major)
+                NEXT_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              minor)
+                NEXT_VERSION="${MAJOR}.$((MINOR + 1)).0"
+                ;;
+              patch)
+                NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+                ;;
+            esac
+
+            echo "Bump type: $BUMP_TYPE"
+            echo "Next version: $NEXT_VERSION"
+            echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
+
+  generate-semantic-docker-tags:
+    description: Generate Docker image tags based on semantic version
+    parameters:
+      image-base:
+        description: Base image URL without tag (e.g., 752286624833.dkr.ecr.us-east-1.amazonaws.com/shapertools/autobot)
+        type: string
+      version:
+        description: Semantic version to use (defaults to SEMANTIC_VERSION env var)
+        type: string
+        default: ""
+      tags-env-var:
+        description: Environment variable to store the space-separated tags
+        type: string
+        default: SEMANTIC_DOCKER_TAGS
+      tag-prefix:
+        description: Prefix for version tags (e.g., 'v' for v1.2.3)
+        type: string
+        default: "v"
+    steps:
+      - run:
+          name: Generating semantic Docker tags
+          command: |
+            set -e
+
+            VERSION="<< parameters.version >>"
+            if [[ -z "$VERSION" ]]; then
+              VERSION="${SEMANTIC_VERSION:-}"
+            fi
+
+            if [[ -z "$VERSION" ]]; then
+              echo "No version available. Skipping semantic Docker tags."
+              echo "export << parameters.tags-env-var >>=''" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            IMAGE_BASE="<< parameters.image-base >>"
+            TAG_PREFIX="<< parameters.tag-prefix >>"
+
+            # Generate tags: v1.2.3 and 1.2.3
+            TAGS="${IMAGE_BASE}:${TAG_PREFIX}${VERSION} ${IMAGE_BASE}:${VERSION}"
+
+            echo "Generated Docker tags: $TAGS"
+            echo "export << parameters.tags-env-var >>='${TAGS}'" >> ${BASH_ENV}
+
 jobs:
   build:
     parameters:
@@ -1124,6 +1279,54 @@ jobs:
       - run:
           name: Publishing to NPM
           command: npm publish
+  create-semantic-release:
+    description: Calculate semantic version and create git tag using semantic-release with fallback
+    executor: node
+    parameters:
+      git-ssh-fingerprint:
+        type: string
+      git-user-email:
+        type: string
+      git-user-name:
+        type: string
+      tag-prefix:
+        description: Prefix for semver git tags (e.g., 'v' for v1.2.3)
+        type: string
+        default: "v"
+      default-version:
+        description: Default version if no semver tags exist
+        type: string
+        default: "1.0.0"
+      fallback-to-patch:
+        description: If true, bump patch version when semantic-release finds no releasable commits but changes exist
+        type: boolean
+        default: true
+    steps:
+      - get-workspace
+      - setup-git-user:
+          git-ssh-fingerprint: << parameters.git-ssh-fingerprint >>
+          git-user-email: << parameters.git-user-email >>
+          git-user-name: << parameters.git-user-name >>
+      - calculate-semantic-version:
+          tag-prefix: << parameters.tag-prefix >>
+          default-version: << parameters.default-version >>
+          fallback-to-patch: << parameters.fallback-to-patch >>
+      - run:
+          name: Creating and pushing semantic version tag
+          command: |
+            if [[ -z "${SEMANTIC_VERSION}" ]]; then
+              echo "No version to release. Skipping tag creation."
+              exit 0
+            fi
+
+            TAG_PREFIX="<< parameters.tag-prefix >>"
+            TAG_NAME="${TAG_PREFIX}${SEMANTIC_VERSION}"
+
+            echo "Creating tag: $TAG_NAME"
+            git tag "$TAG_NAME"
+            git push origin "$TAG_NAME"
+      - put-directory:
+          path: .git
   terraform-plan:
     parameters:
       directory:
