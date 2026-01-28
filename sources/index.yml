@@ -1516,9 +1516,6 @@ jobs:
       setup-steps:
         type: steps
         default: []
-      after-deploy-steps:
-        type: steps
-        default: []
     steps:
       - get-workspace
       - steps: << parameters.setup-steps >>
@@ -1531,7 +1528,6 @@ jobs:
           token-env-var: << parameters.token-env-var >>
           wait: << parameters.wait >>
           timeout: << parameters.timeout >>
-      - steps: << parameters.after-deploy-steps >>
   validate-js:
     parameters:
       setup-steps:
