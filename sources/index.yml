@@ -616,6 +616,92 @@ commands:
           name: Pushing tag to Git remote
           command: git push --tags
 
+  calculate-semantic-version:
+    description: Calculate next semantic version using semantic-release with fallback for non-conventional commits
+    parameters:
+      version-env-var:
+        description: Environment variable to store the calculated version
+        type: string
+        default: SEMANTIC_VERSION
+      default-version:
+        description: Default version if no semver tags exist
+        type: string
+        default: "1.0.0"
+      fallback-to-patch:
+        description: If true, bump patch version when semantic-release finds no releasable commits but changes exist
+        type: boolean
+        default: true
+    steps:
+      - run:
+          name: Calculating semantic version with semantic-release
+          command: |
+            set -e
+
+            DEFAULT_VERSION="<< parameters.default-version >>"
+            FALLBACK_TO_PATCH="<< parameters.fallback-to-patch >>"
+
+            # Install semantic-release
+            echo "Installing semantic-release..."
+            npm install --no-save semantic-release
+
+            # Create minimal semantic-release config
+            echo '{"branches":["master","main"],"tagFormat":"${version}"}' > .releaserc.json
+
+            # Run semantic-release in dry-run mode
+            echo "Running semantic-release --dry-run..."
+            OUTPUT=$(npx semantic-release --dry-run --no-ci 2>&1) || true
+
+            echo "semantic-release output:"
+            echo "$OUTPUT"
+
+            # Extract the next version
+            NEXT_VERSION=$(echo "$OUTPUT" | grep -oP "The next release version is \K[0-9]+\.[0-9]+\.[0-9]+" || true)
+
+            # Clean up
+            rm -f .releaserc.json
+
+            if [[ -n "$NEXT_VERSION" ]]; then
+              echo "Next version from semantic-release: $NEXT_VERSION"
+              echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            echo "No version detected by semantic-release."
+
+            # Fallback: bump patch if there are commits since last tag
+            if [[ "$FALLBACK_TO_PATCH" != "true" ]]; then
+              echo "Fallback disabled. No version will be set."
+              echo "export << parameters.version-env-var >>=''" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            LATEST_TAG=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-version:refname 2>/dev/null | head -n 1 || true)
+
+            if [[ -z "$LATEST_TAG" ]]; then
+              echo "No existing semver tags found. Using default version: ${DEFAULT_VERSION}"
+              echo "export << parameters.version-env-var >>='${DEFAULT_VERSION}'" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
+
+            if [[ "$COMMIT_COUNT" -eq 0 ]]; then
+              echo "No commits since last tag. No version bump needed."
+              echo "export << parameters.version-env-var >>=''" >> ${BASH_ENV}
+              exit 0
+            fi
+
+            echo "Found $COMMIT_COUNT commits since $LATEST_TAG. Applying fallback patch bump."
+
+            MAJOR=$(echo $LATEST_TAG | cut -d. -f1)
+            MINOR=$(echo $LATEST_TAG | cut -d. -f2)
+            PATCH=$(echo $LATEST_TAG | cut -d. -f3)
+
+            NEXT_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+            echo "Fallback version: $NEXT_VERSION"
+            echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
+
 jobs:
   build:
     parameters:
@@ -1124,6 +1210,46 @@ jobs:
       - run:
           name: Publishing to NPM
           command: npm publish
+  create-semantic-release:
+    description: Calculate semantic version and create git tag using semantic-release with fallback
+    executor: node
+    parameters:
+      git-ssh-fingerprint:
+        type: string
+      git-user-email:
+        type: string
+      git-user-name:
+        type: string
+      default-version:
+        description: Default version if no semver tags exist
+        type: string
+        default: "1.0.0"
+      fallback-to-patch:
+        description: If true, bump patch version when semantic-release finds no releasable commits but changes exist
+        type: boolean
+        default: true
+    steps:
+      - get-workspace
+      - setup-git-user:
+          git-ssh-fingerprint: << parameters.git-ssh-fingerprint >>
+          git-user-email: << parameters.git-user-email >>
+          git-user-name: << parameters.git-user-name >>
+      - calculate-semantic-version:
+          default-version: << parameters.default-version >>
+          fallback-to-patch: << parameters.fallback-to-patch >>
+      - run:
+          name: Creating and pushing semantic version tag
+          command: |
+            if [[ -z "${SEMANTIC_VERSION}" ]]; then
+              echo "No version to release. Skipping tag creation."
+              exit 0
+            fi
+
+            echo "Creating tag: ${SEMANTIC_VERSION}"
+            git tag "${SEMANTIC_VERSION}"
+            git push origin "${SEMANTIC_VERSION}"
+      - put-directory:
+          path: .git
   terraform-plan:
     parameters:
       directory:
