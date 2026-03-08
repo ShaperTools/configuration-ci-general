@@ -722,11 +722,11 @@ commands:
       server-env-var:
         description: Environment variable containing Argo CD server URL
         type: string
-        default: ARGOCD_SERVER
+        default: ARGOCD_SERVER_URL
       token-env-var:
         description: Environment variable containing Argo CD auth token
         type: string
-        default: ARGOCD_AUTH_TOKEN
+        default: ARGOCD_TOKEN
       wait:
         description: Wait for sync to complete
         type: boolean
@@ -1500,11 +1500,11 @@ jobs:
       server-env-var:
         description: Environment variable containing Argo CD server URL
         type: string
-        default: ARGOCD_SERVER
+        default: ARGOCD_SERVER_URL
       token-env-var:
         description: Environment variable containing Argo CD auth token
         type: string
-        default: ARGOCD_AUTH_TOKEN
+        default: ARGOCD_TOKEN
       wait:
         description: Wait for sync to complete
         type: boolean
