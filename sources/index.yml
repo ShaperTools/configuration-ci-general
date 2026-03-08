@@ -763,7 +763,7 @@ commands:
             fi
 
             echo "Logging in to Argo CD server: $ARGOCD_SERVER"
-            argocd login "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
+            argocd login "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN"
 
             echo "Setting image tag to: << parameters.image-tag >>"
             argocd app set "<< parameters.app-name >>" --project "<< parameters.project >>" -p "<< parameters.image-param >>=<< parameters.image-tag >>"
