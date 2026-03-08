@@ -765,19 +765,16 @@ commands:
             # Strip protocol prefix if present (argocd CLI expects bare hostname)
             ARGOCD_SERVER="${ARGOCD_SERVER#https://}"
 
-            echo "Logging in to Argo CD server: $ARGOCD_SERVER"
-            argocd login "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web
-
             echo "Setting image tag to: << parameters.image-tag >>"
-            argocd app set "<< parameters.app-name >>" --project "<< parameters.project >>" -p "<< parameters.image-param >>=<< parameters.image-tag >>"
+            argocd --auth-token $ARGOCD_AUTH_TOKEN app set "<< parameters.app-name >>" --project "<< parameters.project >>" -p "<< parameters.image-param >>=<< parameters.image-tag >>"
 
             echo "Syncing application: << parameters.app-name >>"
             <<# parameters.wait >>
-            argocd app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --timeout << parameters.timeout >>
-            argocd app wait "<< parameters.app-name >>" --project "<< parameters.project >>" --timeout << parameters.timeout >>
+            argocd --auth-token $ARGOCD_AUTH_TOKEN app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --timeout << parameters.timeout >>
+            argocd --auth-token $ARGOCD_AUTH_TOKEN app wait "<< parameters.app-name >>" --project "<< parameters.project >>" --timeout << parameters.timeout >>
             <</ parameters.wait >>
             <<^ parameters.wait >>
-            argocd app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --async
+            argocd --auth-token $ARGOCD_AUTH_TOKEN app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --async
             <</ parameters.wait >>
 
             echo "Deployment complete!"
