@@ -766,15 +766,24 @@ commands:
             ARGOCD_SERVER="${ARGOCD_SERVER#https://}"
 
             echo "Setting image tag to: << parameters.image-tag >>"
-            argocd --auth-token $ARGOCD_AUTH_TOKEN app set "<< parameters.app-name >>" --project "<< parameters.project >>" -p "<< parameters.image-param >>=<< parameters.image-tag >>"
+            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
+              app set "<< parameters.app-name >>" --project "<< parameters.project >>" \
+              -p "<< parameters.image-param >>=<< parameters.image-tag >>"
 
             echo "Syncing application: << parameters.app-name >>"
             <<# parameters.wait >>
-            argocd --auth-token $ARGOCD_AUTH_TOKEN app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --timeout << parameters.timeout >>
-            argocd --auth-token $ARGOCD_AUTH_TOKEN app wait "<< parameters.app-name >>" --project "<< parameters.project >>" --timeout << parameters.timeout >>
+            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
+              app sync "<< parameters.app-name >>" --project "<< parameters.project >>" \
+              --prune --timeout << parameters.timeout >>
+            
+            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
+              app wait "<< parameters.app-name >>" --project "<< parameters.project >>" \
+              --timeout << parameters.timeout >>
             <</ parameters.wait >>
             <<^ parameters.wait >>
-            argocd --auth-token $ARGOCD_AUTH_TOKEN app sync "<< parameters.app-name >>" --project "<< parameters.project >>" --prune --async
+            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
+              app sync "<< parameters.app-name >>" --project "<< parameters.project >>" \
+              --prune --async
             <</ parameters.wait >>
 
             echo "Deployment complete!"
