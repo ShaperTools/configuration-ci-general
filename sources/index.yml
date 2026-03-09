@@ -703,7 +703,7 @@ commands:
             echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
 
   argo-deploy:
-    description: Deploy application via Argo CD API
+    description: Deploy application via Argo CD with automated sync
     parameters:
       app-name:
         description: Argo CD application name
@@ -727,14 +727,6 @@ commands:
         description: Environment variable containing Argo CD auth token
         type: string
         default: ARGOCD_TOKEN
-      wait:
-        description: Wait for sync to complete
-        type: boolean
-        default: true
-      timeout:
-        description: Sync timeout in seconds
-        type: integer
-        default: 300
     steps:
       - run:
           name: Installing Argo CD CLI
@@ -765,28 +757,16 @@ commands:
             # Strip protocol prefix if present (argocd CLI expects bare hostname)
             ARGOCD_SERVER="${ARGOCD_SERVER#https://}"
 
-            echo "Setting image tag to: << parameters.image-tag >>"
-            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
-              app set "<< parameters.app-name >>" --project "<< parameters.project >>" \
+            ARGOCD_OPTS="--server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN --grpc-web"
+
+            echo "Setting image tag << parameters.image-tag >> on << parameters.app-name >>"
+            argocd $ARGOCD_OPTS app set "<< parameters.app-name >>" \
+              --sync-policy automated \
+              --self-heal \
+              --project "<< parameters.project >>" \
               -p "<< parameters.image-param >>=<< parameters.image-tag >>"
 
-            echo "Syncing application: << parameters.app-name >>"
-            <<# parameters.wait >>
-            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
-              app sync "<< parameters.app-name >>" --project "<< parameters.project >>" \
-              --prune --timeout << parameters.timeout >>
-
-            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
-              app wait "<< parameters.app-name >>" --project "<< parameters.project >>" \
-              --timeout << parameters.timeout >>
-            <</ parameters.wait >>
-            <<^ parameters.wait >>
-            argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
-              app sync "<< parameters.app-name >>" --project "<< parameters.project >>" \
-              --prune --async
-            <</ parameters.wait >>
-
-            echo "Deployment complete!"
+            echo "Deployment triggered for << parameters.app-name >>. Argo CD will sync automatically."
 
 jobs:
   build:
@@ -1489,7 +1469,7 @@ jobs:
           ignore-missing-plan: << parameters.ignore-missing-plan >>
           lock-timeout: << parameters.lock-timeout >>
   argo-deploy:
-    description: Deploy application via Argo CD
+    description: Deploy application via Argo CD with automated sync
     executor: buildpack-deps
     parameters:
       app-name:
@@ -1514,14 +1494,6 @@ jobs:
         description: Environment variable containing Argo CD auth token
         type: string
         default: ARGOCD_TOKEN
-      wait:
-        description: Wait for sync to complete
-        type: boolean
-        default: true
-      timeout:
-        description: Sync timeout in seconds
-        type: integer
-        default: 300
       setup-steps:
         type: steps
         default: []
@@ -1535,8 +1507,6 @@ jobs:
           project: << parameters.project >>
           server-env-var: << parameters.server-env-var >>
           token-env-var: << parameters.token-env-var >>
-          wait: << parameters.wait >>
-          timeout: << parameters.timeout >>
   validate-js:
     parameters:
       setup-steps:
