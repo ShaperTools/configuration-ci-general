@@ -775,7 +775,7 @@ commands:
             argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
               app sync "<< parameters.app-name >>" --project "<< parameters.project >>" \
               --prune --timeout << parameters.timeout >>
-            
+
             argocd --server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN \
               app wait "<< parameters.app-name >>" --project "<< parameters.project >>" \
               --timeout << parameters.timeout >>
