@@ -702,6 +702,72 @@ commands:
             echo "Fallback version: $NEXT_VERSION"
             echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
 
+  argo-deploy:
+    description: Deploy application via Argo CD with automated sync
+    parameters:
+      app-name:
+        description: Argo CD application name
+        type: string
+      image-tag:
+        description: Docker image tag to deploy
+        type: string
+      image-param:
+        description: Helm parameter path for image tag (e.g., image.tag)
+        type: string
+        default: "shaper-app.image.tag"
+      project:
+        description: Argo CD project name
+        type: string
+        default: "shapertools-applications-staging"
+      server-env-var:
+        description: Environment variable containing Argo CD server URL
+        type: string
+        default: ARGOCD_SERVER_URL
+      token-env-var:
+        description: Environment variable containing Argo CD auth token
+        type: string
+        default: ARGOCD_TOKEN
+    steps:
+      - run:
+          name: Installing Argo CD CLI
+          command: |
+            if ! which argocd > /dev/null; then
+              curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+              chmod +x /tmp/argocd
+              sudo mv /tmp/argocd /usr/local/bin/argocd
+            fi
+      - run:
+          name: Deploying << parameters.app-name >> via Argo CD
+          command: |
+            set -e
+
+            ARGOCD_SERVER="${<< parameters.server-env-var >>}"
+            ARGOCD_AUTH_TOKEN="${<< parameters.token-env-var >>}"
+
+            if [[ -z "$ARGOCD_SERVER" ]]; then
+              echo "Error: << parameters.server-env-var >> environment variable is not set"
+              exit 1
+            fi
+
+            if [[ -z "$ARGOCD_AUTH_TOKEN" ]]; then
+              echo "Error: << parameters.token-env-var >> environment variable is not set"
+              exit 1
+            fi
+
+            # Strip protocol prefix if present (argocd CLI expects bare hostname)
+            ARGOCD_SERVER="${ARGOCD_SERVER#https://}"
+
+            ARGOCD_OPTS="--server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN --grpc-web"
+
+            echo "Setting image tag << parameters.image-tag >> on << parameters.app-name >>"
+            argocd $ARGOCD_OPTS app set "<< parameters.app-name >>" \
+              --sync-policy automated \
+              --self-heal \
+              --project "<< parameters.project >>" \
+              -p "<< parameters.image-param >>=<< parameters.image-tag >>"
+
+            echo "Deployment triggered for << parameters.app-name >>. Argo CD will sync automatically."
+
 jobs:
   build:
     parameters:
@@ -1402,6 +1468,45 @@ jobs:
           directory: << parameters.directory >>
           ignore-missing-plan: << parameters.ignore-missing-plan >>
           lock-timeout: << parameters.lock-timeout >>
+  argo-deploy:
+    description: Deploy application via Argo CD with automated sync
+    executor: buildpack-deps
+    parameters:
+      app-name:
+        description: Argo CD application name
+        type: string
+      image-tag:
+        description: Docker image tag to deploy
+        type: string
+      image-param:
+        description: Helm parameter path for image tag (e.g., image.tag)
+        type: string
+        default: "shaper-app.image.tag"
+      project:
+        description: Argo CD project name
+        type: string
+        default: "shapertools-applications-staging"
+      server-env-var:
+        description: Environment variable containing Argo CD server URL
+        type: string
+        default: ARGOCD_SERVER_URL
+      token-env-var:
+        description: Environment variable containing Argo CD auth token
+        type: string
+        default: ARGOCD_TOKEN
+      setup-steps:
+        type: steps
+        default: []
+    steps:
+      - get-workspace
+      - steps: << parameters.setup-steps >>
+      - argo-deploy:
+          app-name: << parameters.app-name >>
+          image-tag: << parameters.image-tag >>
+          image-param: << parameters.image-param >>
+          project: << parameters.project >>
+          server-env-var: << parameters.server-env-var >>
+          token-env-var: << parameters.token-env-var >>
   validate-js:
     parameters:
       setup-steps:
