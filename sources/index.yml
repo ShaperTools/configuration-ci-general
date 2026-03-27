@@ -649,7 +649,7 @@ commands:
             npm install --no-save semantic-release
 
             # Create minimal semantic-release config
-            echo '{"branches":["master","main"],"tagFormat":"${version}"}' > .releaserc.json
+            echo '{"branches":["master","main"],"tagFormat":"${version}","plugins":["@semantic-release/commit-analyzer"]}' > .releaserc.json
 
             # Run semantic-release in dry-run mode
             echo "Running semantic-release --dry-run..."
@@ -679,7 +679,7 @@ commands:
               exit 0
             fi
 
-            LATEST_TAG=$(git tag --list "[0-9]*.[0-9]*.[0-9]*" --sort=-version:refname 2>/dev/null | head -n 1 || true)
+            LATEST_TAG=$(git tag --list --sort=-version:refname 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
 
             if [[ -z "$LATEST_TAG" ]]; then
               echo "No existing semver tags found. Using default version: ${DEFAULT_VERSION}"
