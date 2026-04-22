@@ -493,7 +493,7 @@ commands:
           name: Installing required Terraform version
           command: |
             cd << parameters.directory >>
-            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/refs/tags/v1.4.6/install.sh | sudo bash
+            curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/master/install.sh | sudo bash -s -- 1.4.4
             [[ -f versions.tf ]] && filename="versions.tf" || filename="main.tf"
             desiredTerraformVersion=$(cat ${filename} | grep --extended-regexp '^\s*required_version\s*=\s*"\s*(=|>=)?\s*[0-9]+\.[0-9]+\.[0-9]+\s*"\s*$' | head | sed -E 's/^.*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
             tfswitch "${desiredTerraformVersion}"
