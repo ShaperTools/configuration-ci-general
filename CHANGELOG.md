@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.10.3"></a>
+## [0.10.3](https://github.com/shapertools/configuration-ci-general/compare/v0.10.2...v0.10.3) (2026-04-22)
+
+
+### Bug Fixes
+
+* Pin tfswitch to v1.4.4 ([17477d6](https://github.com/shapertools/configuration-ci-general/commit/17477d6))
+
+
+
 <a name="0.10.2"></a>
 ## [0.10.2](https://github.com/shapertools/configuration-ci-general/compare/v0.10.1...v0.10.2) (2026-03-27)
 
