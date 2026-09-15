@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.10.5"></a>
+## [0.10.5](https://github.com/shapertools/configuration-ci-general/compare/v0.10.4...v0.10.5) (2026-09-15)
+
+
+### Bug Fixes
+
+* Authenticate semantic-release git operations with GH_TOKEN ([6c1b645](https://github.com/shapertools/configuration-ci-general/commit/6c1b645))
+
+
+
 <a name="0.10.4"></a>
 ## [0.10.4](https://github.com/shapertools/configuration-ci-general/compare/v0.10.3...v0.10.4) (2026-06-24)
 
