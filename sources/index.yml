@@ -707,70 +707,185 @@ commands:
             echo "export << parameters.version-env-var >>='${NEXT_VERSION}'" >> ${BASH_ENV}
 
   argo-deploy:
-    description: Deploy application via Argo CD with automated sync
+    description: Deploy application by committing the image tag to infrastructure-apps (bump-image pipeline); Argo CD syncs from Git
     parameters:
       app-name:
-        description: Argo CD application name
+        description: Argo CD application name (e.g. auth-staging)
         type: string
       image-tag:
         description: Docker image tag to deploy
         type: string
       image-param:
-        description: Helm parameter path for image tag (e.g., image.tag)
+        description: Helm value path for the image tag in values-<env>.yaml
         type: string
         default: "shaper-app.image.tag"
       project:
-        description: Argo CD project name
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: "shapertools-applications-staging"
       server-env-var:
-        description: Environment variable containing Argo CD server URL
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: ARGOCD_SERVER_URL
       token-env-var:
-        description: Environment variable containing Argo CD auth token
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: ARGOCD_TOKEN
+      trigger-token-env-var:
+        description: Environment variable containing a CircleCI API token allowed to trigger infrastructure-apps pipelines
+        type: env_var_name
+        default: CIRCLECI_INFRA_APPS_TOKEN
+      infra-apps-project-slug:
+        description: CircleCI project slug of infrastructure-apps
+        type: string
+        default: gh/ShaperTools/infrastructure-apps
+      timeout-seconds:
+        description: Maximum time to wait for the bump-image workflow to finish
+        type: integer
+        default: 1800
     steps:
       - run:
-          name: Installing Argo CD CLI
+          name: Deploying << parameters.app-name >> via infrastructure-apps bump-image
+          environment:
+            BUMP_APP_NAME: "<< parameters.app-name >>"
+            BUMP_TAG: "<< parameters.image-tag >>"
+            BUMP_IMAGE_PARAM: "<< parameters.image-param >>"
+            BUMP_TIMEOUT_SECONDS: "<< parameters.timeout-seconds >>"
+            INFRA_APPS_SLUG: "<< parameters.infra-apps-project-slug >>"
           command: |
-            if ! which argocd > /dev/null; then
-              curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-              chmod +x /tmp/argocd
-              sudo mv /tmp/argocd /usr/local/bin/argocd
-            fi
-      - run:
-          name: Deploying << parameters.app-name >> via Argo CD
-          command: |
-            set -e
+            set -euo pipefail
 
-            ARGOCD_SERVER="${<< parameters.server-env-var >>}"
-            ARGOCD_AUTH_TOKEN="${<< parameters.token-env-var >>}"
+            for tool in curl jq; do
+              if ! command -v "$tool" > /dev/null; then
+                echo "Error: $tool is required but not installed in this executor"
+                exit 1
+              fi
+            done
 
-            if [[ -z "$ARGOCD_SERVER" ]]; then
-              echo "Error: << parameters.server-env-var >> environment variable is not set"
+            CIRCLE_TOKEN_VALUE="${<< parameters.trigger-token-env-var >>:-}"
+            if [[ -z "$CIRCLE_TOKEN_VALUE" ]]; then
+              echo "Error: << parameters.trigger-token-env-var >> environment variable is not set"
               exit 1
             fi
 
-            if [[ -z "$ARGOCD_AUTH_TOKEN" ]]; then
-              echo "Error: << parameters.token-env-var >> environment variable is not set"
+            API="https://circleci.com/api/v2"
+            POLL_INTERVAL=15
+            BUMP_WORKFLOW_GRACE=120
+            RESPONSE_FILE="$(mktemp)"
+            trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+            api_request() {
+              local method="$1" url="$2" data="${3:-}"
+              local args=(-sS -X "$method" -o "$RESPONSE_FILE" -w '%{http_code}'
+                -H "Circle-Token: ${CIRCLE_TOKEN_VALUE}" -H "Accept: application/json")
+              if [[ -n "$data" ]]; then
+                args+=(-H "Content-Type: application/json" --data "$data")
+              fi
+              local code
+              code="$(curl "${args[@]}" "$url")" || true
+              echo "${code:-000}"
+            }
+
+            api_get_with_retry() {
+              local url="$1" attempt status
+              for attempt in 1 2 3 4 5; do
+                status="$(api_request GET "$url")"
+                case "$status" in
+                  2??) return 0 ;;
+                  000 | 429 | 5??)
+                    echo "Transient error (HTTP $status) polling $url, attempt $attempt/5" >&2
+                    sleep "$POLL_INTERVAL"
+                    ;;
+                  *)
+                    echo "Error: HTTP $status from $url" >&2
+                    cat "$RESPONSE_FILE" >&2
+                    echo >&2
+                    return 1
+                    ;;
+                esac
+              done
+              echo "Error: giving up on $url after repeated transient errors" >&2
+              return 1
+            }
+
+            # First word of output: success | failed | setup-done | waiting.
+            # "failing" is treated as waiting: the workflow still ends as "failed",
+            # which is reported with its final status.
+            evaluate_workflows() {
+              jq -r '
+                (.items // []) as $wf
+                | ([$wf[] | select(.status | IN("failed", "error", "canceled", "unauthorized", "not_run"))] | first) as $bad
+                | if $bad then "failed \($bad.name) ended with status \($bad.status)"
+                  elif any($wf[]; .name == "bump-image" and .status == "success") then "success"
+                  elif any($wf[]; .name == "setup-workflow" and .status == "success")
+                    and (any($wf[]; .name == "bump-image") | not) then "setup-done"
+                  else "waiting"
+                  end
+              ' "$1"
+            }
+
+            PAYLOAD="$(jq -n \
+              --arg app "$BUMP_APP_NAME" \
+              --arg tag "$BUMP_TAG" \
+              --arg param "$BUMP_IMAGE_PARAM" \
+              --arg source "${CIRCLE_PROJECT_REPONAME:-unknown}@${CIRCLE_SHA1:-unknown} ${CIRCLE_BUILD_URL:-}" \
+              '{branch: "master", parameters: {"bump-app-name": $app, "bump-tag": $tag, "bump-image-param": $param, "bump-source": $source}}')"
+
+            echo "Triggering bump-image in $INFRA_APPS_SLUG: $BUMP_APP_NAME $BUMP_IMAGE_PARAM=$BUMP_TAG"
+            STATUS="$(api_request POST "$API/project/$INFRA_APPS_SLUG/pipeline" "$PAYLOAD")"
+            if [[ "$STATUS" != 2?? ]]; then
+              echo "Error: triggering pipeline failed with HTTP $STATUS"
+              cat "$RESPONSE_FILE"
+              echo
               exit 1
             fi
 
-            # Strip protocol prefix if present (argocd CLI expects bare hostname)
-            ARGOCD_SERVER="${ARGOCD_SERVER#https://}"
+            PIPELINE_ID="$(jq -r '.id' "$RESPONSE_FILE")"
+            PIPELINE_NUMBER="$(jq -r '.number' "$RESPONSE_FILE")"
+            WEB_SLUG="$(echo "$INFRA_APPS_SLUG" | sed -e 's#^gh/#github/#' -e 's#^bb/#bitbucket/#')"
+            echo "Pipeline: https://app.circleci.com/pipelines/$WEB_SLUG/$PIPELINE_NUMBER"
 
-            ARGOCD_OPTS="--server $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN --grpc-web"
+            SECONDS=0
+            SETUP_DONE_AT=""
+            while true; do
+              api_get_with_retry "$API/pipeline/$PIPELINE_ID/workflow"
+              EVALUATION="$(evaluate_workflows "$RESPONSE_FILE")"
 
-            echo "Setting image tag << parameters.image-tag >> on << parameters.app-name >>"
-            argocd $ARGOCD_OPTS app set "<< parameters.app-name >>" \
-              --sync-policy automated \
-              --self-heal \
-              --project "<< parameters.project >>" \
-              -p "<< parameters.image-param >>=<< parameters.image-tag >>"
+              case "${EVALUATION%% *}" in
+                success)
+                  echo "bump-image succeeded for $BUMP_APP_NAME ($BUMP_TAG). Argo CD will sync from Git."
+                  exit 0
+                  ;;
+                failed)
+                  echo "Error: workflow ${EVALUATION#failed }"
+                  exit 1
+                  ;;
+                setup-done)
+                  SETUP_DONE_AT="${SETUP_DONE_AT:-$SECONDS}"
+                  if (( SECONDS - SETUP_DONE_AT >= BUMP_WORKFLOW_GRACE )); then
+                    echo "Error: setup-workflow succeeded but bump-image did not start within ${BUMP_WORKFLOW_GRACE}s"
+                    exit 1
+                  fi
+                  ;;
+                waiting)
+                  if [[ "$(jq '.items | length' "$RESPONSE_FILE")" == "0" ]]; then
+                    api_get_with_retry "$API/pipeline/$PIPELINE_ID"
+                    if [[ "$(jq -r '.state' "$RESPONSE_FILE")" == "errored" ]]; then
+                      echo "Error: pipeline errored before creating workflows"
+                      jq -r '.errors[]?.message' "$RESPONSE_FILE"
+                      exit 1
+                    fi
+                  fi
+                  ;;
+              esac
 
-            echo "Deployment triggered for << parameters.app-name >>. Argo CD will sync automatically."
+              if (( SECONDS >= BUMP_TIMEOUT_SECONDS )); then
+                echo "Error: timed out after ${BUMP_TIMEOUT_SECONDS}s waiting for bump-image"
+                exit 1
+              fi
+              echo "Waiting for bump-image (${SECONDS}s elapsed)..."
+              sleep "$POLL_INTERVAL"
+            done
 
 jobs:
   build:
@@ -1473,31 +1588,43 @@ jobs:
           ignore-missing-plan: << parameters.ignore-missing-plan >>
           lock-timeout: << parameters.lock-timeout >>
   argo-deploy:
-    description: Deploy application via Argo CD with automated sync
+    description: Deploy application by committing the image tag to infrastructure-apps (bump-image pipeline); Argo CD syncs from Git
     executor: buildpack-deps
     parameters:
       app-name:
-        description: Argo CD application name
+        description: Argo CD application name (e.g. auth-staging)
         type: string
       image-tag:
         description: Docker image tag to deploy
         type: string
       image-param:
-        description: Helm parameter path for image tag (e.g., image.tag)
+        description: Helm value path for the image tag in values-<env>.yaml
         type: string
         default: "shaper-app.image.tag"
       project:
-        description: Argo CD project name
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: "shapertools-applications-staging"
       server-env-var:
-        description: Environment variable containing Argo CD server URL
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: ARGOCD_SERVER_URL
       token-env-var:
-        description: Environment variable containing Argo CD auth token
+        description: Deprecated and unused; kept so existing configs stay valid
         type: string
         default: ARGOCD_TOKEN
+      trigger-token-env-var:
+        description: Environment variable containing a CircleCI API token allowed to trigger infrastructure-apps pipelines
+        type: env_var_name
+        default: CIRCLECI_INFRA_APPS_TOKEN
+      infra-apps-project-slug:
+        description: CircleCI project slug of infrastructure-apps
+        type: string
+        default: gh/ShaperTools/infrastructure-apps
+      timeout-seconds:
+        description: Maximum time to wait for the bump-image workflow to finish
+        type: integer
+        default: 1800
       setup-steps:
         type: steps
         default: []
@@ -1511,6 +1638,9 @@ jobs:
           project: << parameters.project >>
           server-env-var: << parameters.server-env-var >>
           token-env-var: << parameters.token-env-var >>
+          trigger-token-env-var: << parameters.trigger-token-env-var >>
+          infra-apps-project-slug: << parameters.infra-apps-project-slug >>
+          timeout-seconds: << parameters.timeout-seconds >>
   validate-js:
     parameters:
       setup-steps:
