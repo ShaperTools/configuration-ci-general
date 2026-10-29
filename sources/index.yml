@@ -772,11 +772,15 @@ commands:
             POLL_INTERVAL=15
             BUMP_WORKFLOW_GRACE=120
             RESPONSE_FILE="$(mktemp)"
-            trap 'rm -f "$RESPONSE_FILE"' EXIT
+            WORKFLOWS_FILE="$(mktemp)"
+            echo '{"items":[]}' > "$WORKFLOWS_FILE"
+            trap 'rm -f "$RESPONSE_FILE" "$WORKFLOWS_FILE"' EXIT
+            PIPELINE_ID=""
+            PIPELINE_URL=""
 
             api_request() {
               local method="$1" url="$2" data="${3:-}"
-              local args=(-sS -X "$method" -o "$RESPONSE_FILE" -w '%{http_code}'
+              local args=(-sS --max-time 30 -X "$method" -o "$RESPONSE_FILE" -w '%{http_code}'
                 -H "Circle-Token: ${CIRCLE_TOKEN_VALUE}" -H "Accept: application/json")
               if [[ -n "$data" ]]; then
                 args+=(-H "Content-Type: application/json" --data "$data")
@@ -807,6 +811,64 @@ commands:
               echo "Error: giving up on $url after repeated transient errors" >&2
               return 1
             }
+
+            fail() {
+              echo "Error: $*"
+              if [[ -n "$PIPELINE_URL" ]]; then
+                echo "Pipeline: $PIPELINE_URL"
+              fi
+              exit 1
+            }
+
+            # Without this, the bump-image workflow keeps running (and may push and deploy)
+            # after this job has already reported failure.
+            cancel_bump() {
+              if [[ -z "$PIPELINE_ID" ]]; then
+                echo "No pipeline id yet; if the trigger request reached CircleCI, check $INFRA_APPS_SLUG pipelines manually"
+                return 0
+              fi
+              local status target id name state
+              status="$(api_request GET "$API/pipeline/$PIPELINE_ID/workflow")"
+              if [[ "$status" == 2?? ]]; then
+                cp "$RESPONSE_FILE" "$WORKFLOWS_FILE"
+              fi
+              target="$(jq -r '
+                (.items // []) as $wf
+                | (([$wf[] | select(.name == "bump-image")] | first)
+                   // ([$wf[] | select(.name == "setup-workflow")] | first))
+                | if . then "\(.id) \(.name) \(.status)" else "" end
+              ' "$WORKFLOWS_FILE")"
+              if [[ -z "$target" ]]; then
+                echo "No workflow found to cancel"
+                return 0
+              fi
+              read -r id name state <<< "$target"
+              case "$state" in
+                success | failed | error | canceled | unauthorized | not_run)
+                  echo "Workflow $name already ended with status $state; nothing to cancel"
+                  return 0
+                  ;;
+              esac
+              echo "Cancelling workflow $name ($id)"
+              status="$(api_request POST "$API/workflow/$id/cancel")"
+              if [[ "$status" != 2?? ]]; then
+                echo "Warning: cancelling workflow $id failed with HTTP $status; cancel it in the CircleCI UI"
+              fi
+            }
+
+            abort() {
+              trap - TERM INT
+              echo "Error: $*"
+              cancel_bump
+              if [[ -n "$PIPELINE_URL" ]]; then
+                echo "Pipeline: $PIPELINE_URL"
+              fi
+              echo "A commit already pushed by bump-image stays in git; check the infrastructure-apps history for $BUMP_APP_NAME and revert it if needed."
+              exit 1
+            }
+
+            # CircleCI sends SIGTERM when this job is cancelled.
+            trap 'abort "job interrupted"' TERM INT
 
             # First word of output: success | failed | setup-done | waiting.
             # "failing" is treated as waiting: the workflow still ends as "failed",
@@ -843,12 +905,14 @@ commands:
             PIPELINE_ID="$(jq -r '.id' "$RESPONSE_FILE")"
             PIPELINE_NUMBER="$(jq -r '.number' "$RESPONSE_FILE")"
             WEB_SLUG="$(echo "$INFRA_APPS_SLUG" | sed -e 's#^gh/#github/#' -e 's#^bb/#bitbucket/#')"
-            echo "Pipeline: https://app.circleci.com/pipelines/$WEB_SLUG/$PIPELINE_NUMBER"
+            PIPELINE_URL="https://app.circleci.com/pipelines/$WEB_SLUG/$PIPELINE_NUMBER"
+            echo "Pipeline: $PIPELINE_URL"
 
             SECONDS=0
             SETUP_DONE_AT=""
             while true; do
-              api_get_with_retry "$API/pipeline/$PIPELINE_ID/workflow"
+              api_get_with_retry "$API/pipeline/$PIPELINE_ID/workflow" || fail "could not poll pipeline workflows"
+              cp "$RESPONSE_FILE" "$WORKFLOWS_FILE"
               EVALUATION="$(evaluate_workflows "$RESPONSE_FILE")"
 
               case "${EVALUATION%% *}" in
@@ -857,34 +921,32 @@ commands:
                   exit 0
                   ;;
                 failed)
-                  echo "Error: workflow ${EVALUATION#failed }"
-                  exit 1
+                  fail "workflow ${EVALUATION#failed }"
                   ;;
                 setup-done)
                   SETUP_DONE_AT="${SETUP_DONE_AT:-$SECONDS}"
                   if (( SECONDS - SETUP_DONE_AT >= BUMP_WORKFLOW_GRACE )); then
-                    echo "Error: setup-workflow succeeded but bump-image did not start within ${BUMP_WORKFLOW_GRACE}s"
-                    exit 1
+                    fail "setup-workflow succeeded but bump-image did not start within ${BUMP_WORKFLOW_GRACE}s"
                   fi
                   ;;
                 waiting)
                   if [[ "$(jq '.items | length' "$RESPONSE_FILE")" == "0" ]]; then
-                    api_get_with_retry "$API/pipeline/$PIPELINE_ID"
+                    api_get_with_retry "$API/pipeline/$PIPELINE_ID" || fail "could not read pipeline state"
                     if [[ "$(jq -r '.state' "$RESPONSE_FILE")" == "errored" ]]; then
-                      echo "Error: pipeline errored before creating workflows"
                       jq -r '.errors[]?.message' "$RESPONSE_FILE"
-                      exit 1
+                      fail "pipeline errored before creating workflows"
                     fi
                   fi
                   ;;
               esac
 
               if (( SECONDS >= BUMP_TIMEOUT_SECONDS )); then
-                echo "Error: timed out after ${BUMP_TIMEOUT_SECONDS}s waiting for bump-image"
-                exit 1
+                abort "timed out after ${BUMP_TIMEOUT_SECONDS}s waiting for bump-image"
               fi
               echo "Waiting for bump-image (${SECONDS}s elapsed)..."
-              sleep "$POLL_INTERVAL"
+              # Backgrounded so a SIGTERM runs the trap now rather than after the sleep.
+              sleep "$POLL_INTERVAL" &
+              wait $!
             done
 
 jobs:
