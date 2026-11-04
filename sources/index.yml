@@ -842,7 +842,7 @@ commands:
                 echo "No workflow found to cancel"
                 return 0
               fi
-              read -r id name state <<< "$target"
+              read -r id name state \<<< "$target"
               case "$state" in
                 success | failed | error | canceled | unauthorized | not_run)
                   echo "Workflow $name already ended with status $state; nothing to cancel"
