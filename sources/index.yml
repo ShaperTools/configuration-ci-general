@@ -232,21 +232,82 @@ commands:
             fi
             echo 'export AWS_PROFILE="<< parameters.profile-name >>"' >> ${BASH_ENV}
             echo 'export AWS_SDK_LOAD_CONFIG=1' >> ${BASH_ENV}
+  install-aws-cli:
+    description: Installs AWS CLI v2 from the official bundle if it is not already available
+    steps:
+      - run:
+          name: Installing AWS CLI
+          command: |
+            if which aws > /dev/null; then
+              aws --version
+              exit 0
+            fi
+
+            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o /tmp/awscliv2.zip
+            unzip -q /tmp/awscliv2.zip -d /tmp
+            sudo /tmp/aws/install
+            rm -rf /tmp/awscliv2.zip /tmp/aws
+            aws --version
   login-ecr:
+    description: Logs Docker in to the ECR registry of the current AWS account. Only needed for docker push/pull.
     parameters:
       aws-region:
         type: string
     steps:
+      - install-aws-cli
       - run:
           name: Logging in to ECR
           command: |
-            if ! which aws > /dev/null; then
-              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
-              sudo pip3 install awscli
+            ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+            aws ecr get-login-password --region << parameters.aws-region >> \
+              | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.<< parameters.aws-region >>.amazonaws.com"
+  promote-ecr-image:
+    description: >-
+      Adds a tag to an existing ECR image by copying its manifest via the ECR API.
+      Does not require Docker or an ECR login.
+    parameters:
+      repository:
+        description: ECR repository name (e.g. shapertools/auth)
+        type: string
+      source-tag:
+        type: string
+        default: ${CIRCLE_SHA1}
+      target-tag:
+        type: string
+      aws-region:
+        type: string
+        default: us-east-1
+    steps:
+      - install-aws-cli
+      - run:
+          name: Tagging << parameters.repository >> image as << parameters.target-tag >>
+          command: |
+            set -e
+            MANIFEST="$(aws ecr batch-get-image \
+              --region << parameters.aws-region >> \
+              --repository-name << parameters.repository >> \
+              --image-ids imageTag=<< parameters.source-tag >> \
+              --output json | jq --raw-output --join-output '.images[0].imageManifest')"
+
+            if [[ -z "${MANIFEST}" || "${MANIFEST}" == "null" ]]; then
+              echo "Error: image << parameters.repository >>:<< parameters.source-tag >> not found"
+              exit 1
             fi
 
-            login="$(aws ecr get-login --no-include-email --region << parameters.aws-region >>)"
-            ${login}
+            # put-image fails with ImageAlreadyExistsException when the tag already points at this manifest (job rerun)
+            if ! OUTPUT="$(aws ecr put-image \
+                --region << parameters.aws-region >> \
+                --repository-name << parameters.repository >> \
+                --image-tag << parameters.target-tag >> \
+                --image-manifest "${MANIFEST}" 2>&1)"; then
+              if echo "${OUTPUT}" | grep -q ImageAlreadyExistsException; then
+                echo "Tag << parameters.target-tag >> already points at this image; nothing to do."
+              else
+                echo "${OUTPUT}"
+                exit 1
+              fi
+            fi
+            echo "Tagged << parameters.repository >>:<< parameters.source-tag >> as << parameters.target-tag >>"
   select-or-create-workspace:
     parameters:
       directory:
@@ -1344,13 +1405,7 @@ jobs:
       - install-required-terraform-version:
           directory: << parameters.directory >>
       - steps: << parameters.setup-steps >>
-      - run:
-          name: Installing AWS CLI
-          command: |
-            if ! which aws > /dev/null; then
-              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
-              sudo pip3 install awscli
-            fi
+      - install-aws-cli
       - run:
           name: Initializing Terraform
           command: |
@@ -1447,13 +1502,7 @@ jobs:
       - install-required-terraform-version:
           directory: << parameters.directory >>
       - steps: << parameters.setup-steps >>
-      - run:
-          name: Installing AWS CLI
-          command: |
-            if ! which aws > /dev/null; then
-              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
-              sudo pip3 install awscli
-            fi
+      - install-aws-cli
       - run:
           name: Initializing Terraform
           command: |
@@ -1639,13 +1688,7 @@ jobs:
       - steps: << parameters.setup-steps >>
       - install-required-terraform-version:
           directory: << parameters.directory >>
-      - run:
-          name: Installing AWS CLI
-          command: |
-            if ! which aws > /dev/null; then
-              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
-              sudo pip3 install awscli
-            fi
+      - install-aws-cli
       - run:
           name: Finding and destroying outdated PR deployments
           command: |
@@ -1723,13 +1766,7 @@ jobs:
       - steps: << parameters.setup-steps >>
       - install-required-terraform-version:
           directory: << parameters.directory >>
-      - run:
-          name: Installing AWS CLI
-          command: |
-            if ! which aws > /dev/null; then
-              sudo apt-get update --allow-releaseinfo-change && sudo apt-get install -y python3-pip
-              sudo pip3 install awscli
-            fi
+      - install-aws-cli
       - run:
           name: Finding and destroying outdated PR deployments
           command: |
