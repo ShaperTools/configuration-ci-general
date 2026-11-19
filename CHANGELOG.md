@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.10.6"></a>
+## [0.10.6](https://github.com/shapertools/configuration-ci-general/compare/v0.10.5...v0.10.6) (2026-11-19)
+
+
+### Performance Improvements
+
+* Install AWS CLI v2 from official bundle instead of pip ([9dc4bf9](https://github.com/shapertools/configuration-ci-general/commit/9dc4bf9))
+
+
+
 <a name="0.10.5"></a>
 ## [0.10.5](https://github.com/shapertools/configuration-ci-general/compare/v0.10.4...v0.10.5) (2026-09-15)
 
